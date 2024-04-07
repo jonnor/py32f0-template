@@ -132,11 +132,11 @@ static int parse_output(tm_mat_t* outs)
     return maxi;
 }
 
-int mnist_test(void)
+float mnist_test(void)
 {  
     TM_DBGT_INIT();
     TM_PRINTF("mnist demo\n");
-    tm_mdl_t mdl;
+    static tm_mdl_t mdl;
 
     for(int i=0; i<28*28; i++){
         TM_PRINTF("%3d,", mnist_pic[i]);
@@ -152,7 +152,10 @@ int mnist_test(void)
     tm_stat((tm_mdlbin_t*)mdl_data); 
 #endif
 
-    res = tm_load(&mdl, mdl_data, NULL, layer_cb, &in);
+    // Static buffer for model
+    uint8_t buffer[MDL_BUF_LEN];
+
+    res = tm_load(&mdl, mdl_data, buffer, layer_cb, &in);
     if(res != TM_OK) {
         TM_PRINTF("tm model load err %d\n", res);
         return -1;
@@ -166,8 +169,11 @@ int mnist_test(void)
     TM_DBGT_START();
     res = tm_run(&mdl, &in, outs);
     TM_DBGT("tm_run");
+
+    float out_time = _time;
+
     if(res==TM_OK) parse_output(outs);  
     else TM_PRINTF("tm run error: %d\n", res);
-    tm_unload(&mdl);                 
-    return 0;
+    tm_unload(&mdl);
+    return out_time;
 }
