@@ -21,7 +21,7 @@ ENABLE_PRINTF_FLOAT	?= n
 # Build with FreeRTOS, y:yes, n:no
 USE_FREERTOS	?= n
 # Build with CMSIS DSP functions, y:yes, n:no
-USE_DSP			?= n
+USE_DSP			?= y
 # Build with Waveshare e-paper lib, y:yes, n:no
 USE_EPAPER		?= n
 # Programmer, jlink or pyocd
@@ -146,23 +146,23 @@ INCLUDES	+= Libraries/FreeRTOS/include \
 endif
 
 ifeq ($(USE_DSP),y)
-CFILES 		+= Libraries/CMSIS/DSP/Source/BasicMathFunctions/BasicMathFunctions.c \
-		Libraries/CMSIS/DSP/Source/BayesFunctions/BayesFunctions.c \
-		Libraries/CMSIS/DSP/Source/CommonTables/CommonTables.c \
-		Libraries/CMSIS/DSP/Source/ComplexMathFunctions/ComplexMathFunctions.c \
-		Libraries/CMSIS/DSP/Source/ControllerFunctions/ControllerFunctions.c \
-		Libraries/CMSIS/DSP/Source/DistanceFunctions/DistanceFunctions.c \
-		Libraries/CMSIS/DSP/Source/FastMathFunctions/FastMathFunctions.c \
-		Libraries/CMSIS/DSP/Source/FilteringFunctions/FilteringFunctions.c \
-		Libraries/CMSIS/DSP/Source/InterpolationFunctions/InterpolationFunctions.c \
-		Libraries/CMSIS/DSP/Source/MatrixFunctions/MatrixFunctions.c \
-		Libraries/CMSIS/DSP/Source/QuaternionMathFunctions/QuaternionMathFunctions.c \
-		Libraries/CMSIS/DSP/Source/StatisticsFunctions/StatisticsFunctions.c \
-		Libraries/CMSIS/DSP/Source/SupportFunctions/SupportFunctions.c \
-		Libraries/CMSIS/DSP/Source/SVMFunctions/SVMFunctions.c \
-		Libraries/CMSIS/DSP/Source/TransformFunctions/TransformFunctions.c
-INCLUDES	+= Libraries/CMSIS/DSP/Include \
-		Libraries/CMSIS/DSP/PrivateInclude
+CFILES 		+= Libraries/CMSIS-DSP/Source/BasicMathFunctions/BasicMathFunctions.c \
+		Libraries/CMSIS-DSP/Source/BayesFunctions/BayesFunctions.c \
+		Libraries/CMSIS-DSP/Source/CommonTables/CommonTables.c \
+		Libraries/CMSIS-DSP/Source/ComplexMathFunctions/ComplexMathFunctions.c \
+		Libraries/CMSIS-DSP/Source/ControllerFunctions/ControllerFunctions.c \
+		Libraries/CMSIS-DSP/Source/DistanceFunctions/DistanceFunctions.c \
+		Libraries/CMSIS-DSP/Source/FastMathFunctions/FastMathFunctions.c \
+		Libraries/CMSIS-DSP/Source/FilteringFunctions/FilteringFunctions.c \
+		Libraries/CMSIS-DSP/Source/InterpolationFunctions/InterpolationFunctions.c \
+		Libraries/CMSIS-DSP/Source/MatrixFunctions/MatrixFunctions.c \
+		Libraries/CMSIS-DSP/Source/QuaternionMathFunctions/QuaternionMathFunctions.c \
+		Libraries/CMSIS-DSP/Source/StatisticsFunctions/StatisticsFunctions.c \
+		Libraries/CMSIS-DSP/Source/SupportFunctions/SupportFunctions.c \
+		Libraries/CMSIS-DSP/Source/SVMFunctions/SVMFunctions.c \
+		Libraries/CMSIS-DSP/Source/TransformFunctions/TransformFunctions.c
+INCLUDES	+= Libraries/CMSIS-DSP/Include \
+		Libraries/CMSIS-DSP/PrivateInclude
 endif
 
 ifeq ($(USE_EPAPER),y)
