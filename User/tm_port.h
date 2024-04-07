@@ -57,7 +57,7 @@ limitations under the License.
 #define TM_DBGT_START()    //_start=TM_GET_US();
 #define TM_DBGT(x)         /*{_finish=TM_GET_US();\
                             _time = (float)(_finish-_start)/1000.0;\
-                            TM_PRINTF("===%s use %.3f ms\n",*/ (x) /*, _time);\
+                            TM_PRINTF("===%s use %.3f ms\n", (x) , _time);\
                             _start=TM_GET_US();}*/
 
 /******************************* DBG PERFORMANCE CONFIG  ************************************/

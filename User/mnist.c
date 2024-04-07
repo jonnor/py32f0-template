@@ -115,7 +115,7 @@ static tm_err_t layer_cb(tm_mdl_t* mdl, tml_head_t* lh)
 #endif
 }
 
-static void parse_output(tm_mat_t* outs)
+static int parse_output(tm_mat_t* outs)
 {
     tm_mat_t out = outs[0];
     float* data  = out.dataf;
@@ -129,7 +129,7 @@ static void parse_output(tm_mat_t* outs)
         }
     }
     TM_PRINTF("### Predict output is: Number %d, prob %.3f\n", maxi, maxp);
-    return;
+    return maxi;
 }
 
 int mnist_test(void)
