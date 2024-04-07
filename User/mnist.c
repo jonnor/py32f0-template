@@ -19,7 +19,7 @@
 #endif
 
 #if 1
-uint8_t mnist_pic[28*28]={
+const uint8_t mnist_pic[28*28]={
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -50,7 +50,7 @@ uint8_t mnist_pic[28*28]={
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
 };
 #else
-uint8_t mnist_pic[28*28]={
+const uint8_t mnist_pic[28*28]={
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -83,7 +83,9 @@ uint8_t mnist_pic[28*28]={
 #endif
 
 static tm_err_t layer_cb(tm_mdl_t* mdl, tml_head_t* lh)
-{   //dump middle result
+{  
+#if 0
+    //dump middle result
     int h = lh->out_dims[1];
     int w = lh->out_dims[2];
     int ch= lh->out_dims[3];
@@ -109,6 +111,7 @@ static tm_err_t layer_cb(tm_mdl_t* mdl, tml_head_t* lh)
     TM_PRINTF("\n");
     #endif
     return TM_OK;
+#endif
 }
 
 static void parse_output(tm_mat_t* outs)
@@ -143,7 +146,10 @@ int mnist_test(void)
     tm_mat_t in = {3,28,28,1, {NULL}};
     tm_mat_t outs[1];
     tm_err_t res;
+
+#if (TM_ENABLE_STAT)
     tm_stat((tm_mdlbin_t*)mdl_data); 
+#endif
 
     res = tm_load(&mdl, mdl_data, NULL, layer_cb, &in);
     if(res != TM_OK) {
