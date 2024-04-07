@@ -12,10 +12,9 @@
 #include "tm_stat.c"
 
 #if TM_MDL_TYPE == TM_MDL_INT8
-#error "INT8 model missing"
-//#include "mnist_arduino_custom.h"
-#elif TM_MDL_TYPE == TM_MDL_FP32
 #include "mnist_arduino_custom.h"
+#elif TM_MDL_TYPE == TM_MDL_FP32
+#error "FP32 not supported"
 #endif
 
 #if 1
@@ -110,6 +109,8 @@ static tm_err_t layer_cb(tm_mdl_t* mdl, tml_head_t* lh)
     }
     TM_PRINTF("\n");
     #endif
+    return TM_OK;
+#else
     return TM_OK;
 #endif
 }

@@ -29,7 +29,7 @@ limitations under the License.
 /******************************* PORT CONFIG  ************************************/
 #define TM_ARCH         TM_ARCH_CPU
 #define TM_OPT_LEVEL    TM_OPT0
-#define TM_MDL_TYPE     TM_MDL_FP32
+#define TM_MDL_TYPE     TM_MDL_INT8
 #define TM_FASTSCALE    (1)         //enable if your chip don't have FPU, may speed up 1/3, but decrease accuracy
 #define TM_LOCAL_MATH   (0)         //use local math func (like exp()) to avoid libm
 #define TM_ENABLE_STAT  (0)         //enable mdl stat functions
@@ -40,8 +40,8 @@ limitations under the License.
 #define TM_INLINE       __attribute__((always_inline)) static inline
 #define TM_WEAK         __attribute__((weak))
 
-#define tm_malloc(x)    0//malloc(x)
-#define tm_free(x)      0//free(x)
+#define tm_malloc(x)    malloc(x)
+#define tm_free(x)      free(x)
 
 
 #define TM_PRINTF(...) //printf(__VA_ARGS__)
