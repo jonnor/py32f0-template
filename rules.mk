@@ -125,3 +125,10 @@ else ifeq ($(FLASH_PROGRM),pyocd)
 else
 	@echo "FLASH_PROGRM is invalid\n"
 endif
+
+gdb:
+ifeq ($(FLASH_PROGRM),pyocd)
+	$(PYOCD_EXE) gdbserver -t $(PYOCD_DEVICE) --config $(TOP)/Misc/pyocd.yaml
+else
+	@echo "FLASH_PROGRM is invalid\n"
+endif
