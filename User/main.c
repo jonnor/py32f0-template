@@ -21,6 +21,8 @@ int main(void)
     HAL_Delay(1000);                            
     HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_0);
     printf("echo\r\n");
+
+    mnist_test();
   }
 }
 

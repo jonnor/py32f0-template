@@ -22,6 +22,8 @@ ENABLE_PRINTF_FLOAT	?= n
 USE_FREERTOS	?= n
 # Build with CMSIS DSP functions, y:yes, n:no
 USE_DSP			?= n
+# Build with TinyMaix functions, y:yes, n:no
+USE_TINYMAIX	?= y
 # Build with Waveshare e-paper lib, y:yes, n:no
 USE_EPAPER		?= n
 # Programmer, jlink or pyocd
@@ -176,5 +178,12 @@ INCLUDES	+= Libraries/EPaper/Lib \
 			Libraries/EPaper/Fonts \
 			Libraries/EPaper/GUI
 endif
+
+ifeq ($(USE_TINYMAIX),y)
+#CFILES 		+= 
+INCLUDES	+=  Libraries/TinyMaix/include/ \
+		        Libraries/TinyMaix/src/
+endif
+
 
 include ./rules.mk

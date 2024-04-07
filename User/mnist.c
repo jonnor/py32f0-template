@@ -1,9 +1,6 @@
 
 // Example based off https://github.com/sipeed/TinyMaix/tree/main/examples/mnist
 
-// To run
-// gcc -o mnist main.c -I. -I./TinyMaix/include/ -I TinyMaix/src/ -lm && ./mnist
-
 // Make sure our local config is used
 #include "./tm_port.h"
 
@@ -131,8 +128,9 @@ static void parse_output(tm_mat_t* outs)
     return;
 }
 
-int main(int argc, char** argv)
-{   TM_DBGT_INIT();
+int mnist_test(void)
+{  
+    TM_DBGT_INIT();
     TM_PRINTF("mnist demo\n");
     tm_mdl_t mdl;
 
