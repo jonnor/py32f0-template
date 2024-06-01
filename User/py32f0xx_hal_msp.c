@@ -28,6 +28,7 @@
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
+static DMA_HandleTypeDef HdmaCh1;
 /* Private function prototypes -----------------------------------------------*/
 /* External functions --------------------------------------------------------*/
 
@@ -39,6 +40,45 @@
   */
 void HAL_MspInit(void)
 {
+}
+
+void HAL_ADC_MspInit(ADC_HandleTypeDef *hadc)
+{
+  GPIO_InitTypeDef          GPIO_InitStruct;
+  __HAL_RCC_SYSCFG_CLK_ENABLE();
+  __HAL_RCC_DMA_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+ 
+  /* ADC Channel: PA0   */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  HAL_SYSCFG_DMA_Req(DMA_CHANNEL_MAP_ADC);            /* DMA1_MAP Set to ADC */
+
+  HdmaCh1.Instance                 = DMA1_Channel1;
+  HdmaCh1.Init.Direction           = DMA_PERIPH_TO_MEMORY;
+  HdmaCh1.Init.PeriphInc           = DMA_PINC_DISABLE;
+  HdmaCh1.Init.MemInc              = DMA_MINC_ENABLE;
+  HdmaCh1.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+  HdmaCh1.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
+  HdmaCh1.Init.Mode                = DMA_CIRCULAR;
+  HdmaCh1.Init.Priority            = DMA_PRIORITY_HIGH;
+
+  HAL_DMA_DeInit(&HdmaCh1);
+  HAL_DMA_Init(&HdmaCh1);
+  __HAL_LINKDMA(hadc, DMA_Handle, HdmaCh1);
+}
+
+void HAL_ADC_MspDeInit(ADC_HandleTypeDef *hadc)
+{
+  __HAL_RCC_ADC_FORCE_RESET();
+  __HAL_RCC_ADC_RELEASE_RESET();
+  __HAL_RCC_DMA_FORCE_RESET();
+  __HAL_RCC_DMA_RELEASE_RESET();
+
+  HAL_GPIO_DeInit(GPIOA, GPIO_PIN_0);
 }
 
 /************************ (C) COPYRIGHT Puya *****END OF FILE******************/

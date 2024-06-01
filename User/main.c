@@ -1,18 +1,41 @@
 /***
- * Demo: LED Toggle
+ * Demo: ADC With DMA Triggered by TIM1
  * 
- * PA0   ------> LED+
- * GND   ------> LED-
+ * PY32          
+ * PA4      ------> Input voltage between 0V ~ 3.3V
+ * 
+ * PA2(TX)  ------> RX
+ * PA3(RX)  ------> TX
  */
+#include "main.h"
+#include "py32f0xx_bsp_clock.h"
 #include "py32f0xx_bsp_printf.h"
 
+#if 0
 #include "dsp/transform_functions.h"
-
 #define FFT_LENGTH 128
 #define N_MELS 40
 
 #include "audio.h"
+#endif
 
+static uint32_t ADCxConvertedDatas;
+
+static void APP_ADCConfig(void);
+static void APP_TimerInit(void);
+static void APP_DMAConfig(void);
+static void APP_GPIO_Config(void);
+static void APP_SystemClockConfig(void);
+
+const int MCU_CLOCK = 24000000;
+const int BLINK_RATE = 1000;
+
+uint32_t GetTick(void) {
+
+  return 0; // FIXME: implement with LL
+}
+
+#if 0
 void test_fft()
 {
 
@@ -34,39 +57,181 @@ void test_fft()
 
     // NOTE: output is scaled differently based on FFT_LENGTH
     //arm_rfft_q15(&rfft, samples, out);
-
 }
-
-static void APP_GPIO_Config(void);
+#endif
 
 int main(void)
 {
-  HAL_Init();                                 
+  APP_SystemClockConfig();
+
+  BSP_USART_Config(115200);
+  printf("ADC Timer Trigger DMA Demo\r\nClock: %ld\r\n", SystemCoreClock);
+
+  APP_DMAConfig();
+  APP_ADCConfig();
   APP_GPIO_Config();
-  BSP_USART_Config();
-  printf("PY32F0xx LED Toggle Demo\r\nSystem Clock: %ld\r\n", SystemCoreClock);
-  
-    test_fft();
+  // Start ADC regular conversion and wait for next external trigger
+  LL_ADC_REG_StartConversion(ADC1);
+
+  APP_TimerInit();
+
+
+  uint32_t previous_blink = 0;
+
+//   test_fft();
 
   while (1)
   {
-    HAL_Delay(1000);                            
-    HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_0);
-    printf("echo\r\n");
+
+    // FIXME: check and process input data buffers
+
+    const uint32_t tick = GetTick();
+    if (tick > previous_blink + BLINK_RATE) {
+      LL_GPIO_TogglePin(GPIOB, LL_GPIO_PIN_5);
+      printf("blink tick=%lld\r\n", (long long)tick);
+      previous_blink = tick;
+    }
+
   }
+}
+
+static void APP_SystemClockConfig(void)
+{
+  LL_RCC_HSI_Enable();
+  while(LL_RCC_HSI_IsReady() != 1);
+
+  LL_RCC_SetAHBPrescaler(LL_RCC_SYSCLK_DIV_1);
+  LL_RCC_SetSysClkSource(LL_RCC_SYS_CLKSOURCE_HSISYS);
+  while(LL_RCC_GetSysClkSource() != LL_RCC_SYS_CLKSOURCE_STATUS_HSISYS);
+
+  LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_1);
+  LL_Init1msTick(MCU_CLOCK);
+  LL_SetSystemCoreClock(MCU_CLOCK);
 }
 
 static void APP_GPIO_Config(void)
 {
+// FIXME: setup using LL
+#if 0
   GPIO_InitTypeDef GPIO_InitStruct;
 
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  // PA0
-  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  // PB5 as liveness indicator. Blink/toggle
+  GPIO_InitStruct.Pin = GPIO_PIN_5;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+#endif
+}
+
+
+static void APP_TimerInit(void)
+{
+  // FIXME: set samplerate
+
+  LL_APB1_GRP2_EnableClock(LL_APB1_GRP2_PERIPH_TIM1);
+  LL_TIM_SetPrescaler(TIM1, (SystemCoreClock / 6000) - 1);
+  LL_TIM_SetAutoReload(TIM1, 6000 - 1);
+  /* Triggered by update */
+  LL_TIM_SetTriggerOutput(TIM1, LL_TIM_TRGO_UPDATE);
+
+  LL_TIM_EnableCounter(TIM1);
+}
+
+static void APP_ADCConfig(void)
+{
+  __IO uint32_t backup_setting_adc_dma_transfer = 0;
+
+  LL_APB1_GRP2_EnableClock(LL_APB1_GRP2_PERIPH_ADC1);
+  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOA);
+
+  LL_ADC_Reset(ADC1);
+  // Calibrate start
+  if (LL_ADC_IsEnabled(ADC1) == 0)
+  {
+    /* Backup current settings */
+    backup_setting_adc_dma_transfer = LL_ADC_REG_GetDMATransfer(ADC1);
+    /* Turn off DMA when calibrating */
+    LL_ADC_REG_SetDMATransfer(ADC1, LL_ADC_REG_DMA_TRANSFER_NONE);
+    LL_ADC_StartCalibration(ADC1);
+
+    while (LL_ADC_IsCalibrationOnGoing(ADC1) != 0);
+
+    /* Delay 1ms(>= 4 ADC clocks) before re-enable ADC */
+    LL_mDelay(1);
+    /* Apply saved settings */
+    LL_ADC_REG_SetDMATransfer(ADC1, backup_setting_adc_dma_transfer);
+  }
+  // Calibrate end
+
+  /* PA0 as ADC input */
+  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_0, LL_GPIO_MODE_ANALOG);
+  /* Set ADC channel and clock source when ADEN=0, set other configurations when ADSTART=0 */
+  LL_ADC_SetCommonPathInternalCh(__LL_ADC_COMMON_INSTANCE(ADC1), LL_ADC_PATH_INTERNAL_NONE);
+
+  LL_ADC_SetClock(ADC1, LL_ADC_CLOCK_SYNC_PCLK_DIV2);
+  LL_ADC_SetResolution(ADC1, LL_ADC_RESOLUTION_12B);
+  LL_ADC_SetResolution(ADC1, LL_ADC_DATA_ALIGN_RIGHT);
+  LL_ADC_SetLowPowerMode(ADC1, LL_ADC_LP_MODE_NONE);
+  LL_ADC_SetSamplingTimeCommonChannels(ADC1, LL_ADC_SAMPLINGTIME_41CYCLES_5);
+
+  /* Set TIM1 as trigger source */
+  LL_ADC_REG_SetTriggerSource(ADC1, LL_ADC_REG_TRIG_EXT_TIM1_TRGO);
+  LL_ADC_REG_SetTriggerEdge(ADC1, LL_ADC_REG_TRIG_EXT_RISING);
+  LL_ADC_REG_SetContinuousMode(ADC1, LL_ADC_REG_CONV_SINGLE);
+
+  LL_ADC_REG_SetDMATransfer(ADC1, LL_ADC_REG_DMA_TRANSFER_UNLIMITED);
+  LL_ADC_REG_SetOverrun(ADC1, LL_ADC_REG_OVR_DATA_OVERWRITTEN);
+  /* Enable: each conversions in the sequence need to be triggerred separately */
+  LL_ADC_REG_SetSequencerDiscont(ADC1, LL_ADC_REG_SEQ_DISCONT_DISABLE);
+  /* Can be multiple channels */
+  LL_ADC_REG_SetSequencerChannels(ADC1, LL_ADC_CHANNEL_4);
+
+  LL_ADC_Enable(ADC1);
+}
+
+static void APP_DMAConfig(void)
+{
+  // TODO: use a larger DMA buffer, to reduce intrrrupt rate
+
+  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_DMA1);
+  LL_APB1_GRP2_EnableClock(LL_APB1_GRP2_PERIPH_SYSCFG);
+
+  // Remap ADC to LL_DMA_CHANNEL_1
+  LL_SYSCFG_SetDMARemap_CH1(LL_SYSCFG_DMA_MAP_ADC);
+  // Transfer from peripheral to memory
+  LL_DMA_SetDataTransferDirection(DMA1, LL_DMA_CHANNEL_1, LL_DMA_DIRECTION_PERIPH_TO_MEMORY);
+  // Set priority
+  LL_DMA_SetChannelPriorityLevel(DMA1, LL_DMA_CHANNEL_1, LL_DMA_PRIORITY_HIGH);
+  // Circular mode
+  LL_DMA_SetMode(DMA1, LL_DMA_CHANNEL_1, LL_DMA_MODE_CIRCULAR);
+  // Peripheral address no increment
+  LL_DMA_SetPeriphIncMode(DMA1, LL_DMA_CHANNEL_1, LL_DMA_PERIPH_NOINCREMENT);
+  // Memory address no increment
+  LL_DMA_SetMemoryIncMode(DMA1, LL_DMA_CHANNEL_1, LL_DMA_MEMORY_NOINCREMENT);
+  // Peripheral data alignment : Word
+  LL_DMA_SetPeriphSize(DMA1, LL_DMA_CHANNEL_1, LL_DMA_PDATAALIGN_WORD);
+  // Memory data alignment : Word
+  LL_DMA_SetMemorySize(DMA1, LL_DMA_CHANNEL_1, LL_DMA_MDATAALIGN_WORD);
+  // Data length
+  LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_1, 1);
+  // Sorce and target address
+  LL_DMA_ConfigAddresses(DMA1, LL_DMA_CHANNEL_1, (uint32_t)&ADC1->DR, (uint32_t)&ADCxConvertedDatas, LL_DMA_GetDataTransferDirection(DMA1, LL_DMA_CHANNEL_1));
+  // Enable DMA channel 1
+  LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_1);
+  // Enable transfer-complete interrupt
+  LL_DMA_EnableIT_TC(DMA1, LL_DMA_CHANNEL_1);
+
+  NVIC_SetPriority(DMA1_Channel1_IRQn, 0);
+  NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+}
+
+void APP_TransferCompleteCallback(void)
+{
+  // Copy data to our processing buffer
+
+  //printf("adc-transfer-complete tick=%lld", (long long)HAL_GetTick());
 }
 
 void APP_ErrorHandler(void)
@@ -75,12 +240,8 @@ void APP_ErrorHandler(void)
 }
 
 #ifdef  USE_FULL_ASSERT
-/**
-  * @brief  Export assert error source and line number
-  */
 void assert_failed(uint8_t *file, uint32_t line)
 {
-  /* printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   while (1);
 }
 #endif /* USE_FULL_ASSERT */

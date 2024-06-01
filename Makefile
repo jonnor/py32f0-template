@@ -15,7 +15,7 @@ MCU_TYPE		= PY32F003x6
 ##### Options #####
 
 # Use LL library instead of HAL, y:yes, n:no
-USE_LL_LIB ?= n
+USE_LL_LIB ?= y
 # Enable printf float %f support, y:yes, n:no
 ENABLE_PRINTF_FLOAT	?= n
 # Build with FreeRTOS, y:yes, n:no
