@@ -8,6 +8,7 @@
  * PA3(RX)  ------> TX
  */
 #include "main.h"
+#include "systick.h"
 #include "py32f0xx_bsp_clock.h"
 #include "py32f0xx_bsp_printf.h"
 
@@ -31,8 +32,7 @@ const int MCU_CLOCK = 24000000;
 const int BLINK_RATE = 1000;
 
 uint32_t GetTick(void) {
-
-  return 0; // FIXME: implement with LL
+  return systick_GetTick();
 }
 
 #if 0
@@ -86,7 +86,7 @@ int main(void)
     // FIXME: check and process input data buffers
 
     const uint32_t tick = GetTick();
-    if (tick > previous_blink + BLINK_RATE) {
+    if (tick > (previous_blink + BLINK_RATE)) {
       LL_GPIO_TogglePin(GPIOB, LL_GPIO_PIN_5);
       printf("blink tick=%lld\r\n", (long long)tick);
       previous_blink = tick;
@@ -111,18 +111,9 @@ static void APP_SystemClockConfig(void)
 
 static void APP_GPIO_Config(void)
 {
-// FIXME: setup using LL
-#if 0
-  GPIO_InitTypeDef GPIO_InitStruct;
-
-  __HAL_RCC_GPIOA_CLK_ENABLE();
   // PB5 as liveness indicator. Blink/toggle
-  GPIO_InitStruct.Pin = GPIO_PIN_5;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-#endif
+  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOB);
+  LL_GPIO_SetPinMode(GPIOB, LL_GPIO_PIN_5, LL_GPIO_MODE_OUTPUT);
 }
 
 
@@ -229,9 +220,9 @@ static void APP_DMAConfig(void)
 
 void APP_TransferCompleteCallback(void)
 {
-  // Copy data to our processing buffer
+  // FIXME: Copy data to our processing buffer
 
-  //printf("adc-transfer-complete tick=%lld", (long long)HAL_GetTick());
+  printf("adc-transfer-complete tick=%lld", (long long)GetTick());
 }
 
 void APP_ErrorHandler(void)
