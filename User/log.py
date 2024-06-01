@@ -39,7 +39,7 @@ def open_and_log(dev, baud, timeout):
                 event = parse_line(line)
                 log.debug('line-received', line=line)
 
-            log.debug('readlines', lines=len(lines))
+            #log.debug('readlines', lines=len(lines))
 
 
 def parse():
@@ -47,8 +47,8 @@ def parse():
     parser = argparse.ArgumentParser("Open the log of device")
 
     parser.add_argument('--serial', default='/dev/ttyACM0')
-    parser.add_argument('--baudrate', type=int, default=460800)
-    parser.add_argument('--timeout', type=float, default=0.01)
+    parser.add_argument('--baudrate', type=int, default=921600)
+    parser.add_argument('--timeout', type=float, default=0.001)
     parser.add_argument('--logs', type=str, default='logs')
     parser.add_argument('--retry', type=float, default='2.0', help="Serial retry time")
 

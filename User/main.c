@@ -22,11 +22,42 @@
 
 #include "main.h"
 #include "py32f0xx_bsp_printf.h"
-
+#include "base64.h"
+#include <string.h>
 
 static void APP_SystemClockConfig(void);
 static void APP_GPIOConfig(void);
 
+
+
+
+void
+log_send_audio(const int16_t *samples, int length, uint32_t sequence_no)
+{
+    // OPT: iterate over chunks of the samples, encode them gradually, reduce size of buffer
+    static unsigned char buffer[256];
+    size_t written;
+
+    const int status = \
+        base64_encode(buffer, 256, &written, (const uint8_t *)samples, 2*length);
+    
+    if (status != BASE64_OK) {
+        printf("log-send-audio-error status=%d\r\n", status);
+        return;
+    }
+
+    printf("audio-block seq=%ld ", (long)sequence_no);
+
+    printf("data=");
+    for (int i=0; i<written; i++) {
+        putchar((char )buffer[i]);
+    }
+
+    printf("\r\n");
+}
+
+#define SAMPLES_LENGTH 64
+#define SAMPLERATE 8000
 
 int main(void)
 {
@@ -38,11 +69,17 @@ int main(void)
   printf("PY32F0xx GPIO Example\r\nClock: %ld\r\n", SystemCoreClock);
   int counter = 0;
 
+  const int sample_chunk_ms = (SAMPLES_LENGTH * 1000) / SAMPLERATE;
+  static int16_t audio_buffer[SAMPLES_LENGTH];
+  memset(audio_buffer, 0, 2*SAMPLES_LENGTH);
+
   while (1)
   {
     LL_GPIO_TogglePin(GPIOA, LL_GPIO_PIN_0);
-    printf("echo %d\r\n", counter);
-    LL_mDelay(160);
+
+    log_send_audio(audio_buffer, SAMPLES_LENGTH, counter);
+
+    LL_mDelay(sample_chunk_ms);
     counter += 1;
   }
 }

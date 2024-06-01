@@ -53,6 +53,7 @@ AFILES	:=
 # Include paths
 INCLUDES	:= Libraries/CMSIS/Core/Include \
 			Libraries/CMSIS/Device/PY32F0xx/Include \
+            Libraries/mbedtls/include/ \
 			User
 
 ##### Library Paths ############
@@ -164,6 +165,8 @@ CFILES 		+= Libraries/CMSIS-DSP/Source/BasicMathFunctions/BasicMathFunctions.c \
 INCLUDES	+= Libraries/CMSIS-DSP/Include \
 		Libraries/CMSIS-DSP/PrivateInclude
 endif
+
+CFILES += ./Libraries/mbedtls/library/base64.c
 
 ifeq ($(USE_EPAPER),y)
 CDIRS		+= Libraries/EPaper/Lib \
