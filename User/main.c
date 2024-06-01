@@ -50,10 +50,10 @@ log_send_audio(const int16_t *samples, int length, uint32_t sequence_no)
 
     printf("data=");
     for (int i=0; i<written; i++) {
-        putchar((char )buffer[i]);
+        BSP_UART_TxChar((char )buffer[i]);
     }
 
-    printf("\r\n");
+    printf(" a=b \r\n");
 }
 
 #define SAMPLES_LENGTH 64
