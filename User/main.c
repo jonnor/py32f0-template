@@ -13,6 +13,7 @@
 #include "py32f0xx_bsp_printf.h"
 
 #include "base64.h"
+#include "queue.h"
 #include <string.h>
 #include <math.h>
 
@@ -28,7 +29,18 @@
 #include "audio.h"
 #endif
 
-static uint32_t ADCxConvertedDatas;
+#define AUDIO_BUFFER_SIZE 64
+#define DMA_BUFFER_SIZE (AUDIO_BUFFER_SIZE)
+
+struct audio_msg {
+    int16_t data[AUDIO_BUFFER_SIZE];
+};
+
+QUEUE_DECLARATION(audio_msg_queue, struct audio_msg, 2);
+QUEUE_DEFINITION(audio_msg_queue, struct audio_msg);
+
+struct audio_msg_queue audio_queue;
+__IO uint16_t dma_buffer[AUDIO_BUFFER_SIZE];
 
 static void APP_ADCConfig(void);
 static void APP_TimerInit(void);
@@ -125,26 +137,28 @@ int main(void)
 
   APP_TimerInit();
 
+  audio_msg_queue_init(&audio_queue);
+
   // Status LED
   uint32_t previous_blink = 0;
 
 
+#if 0
   // Dummy audio data. FIXME: fill with a sinewave or similar
   const int sample_chunk_ms = (SAMPLES_LENGTH * 1000) / SAMPLERATE;
   static int16_t audio_buffer[SAMPLES_LENGTH];
-
   memset(audio_buffer, 0, 2*SAMPLES_LENGTH);
-
   sinewave_fill(audio_buffer, SAMPLES_LENGTH, SAMPLERATE, 100.0, 10000);
+#endif
 
-  int counter = 0;
-  uint32_t previous_audio_chunk = 0;
+  int audio_counter = 0;
 
 //   test_fft();
 
+  struct audio_msg audio_chunk;
+
   while (1)
   {
-    // FIXME: check and process input data buffers
 
     const uint32_t tick = GetTick();
 
@@ -156,12 +170,14 @@ int main(void)
       previous_blink = tick;
     }
 
-    // Send audio chunks
-    if (tick >= (previous_audio_chunk + sample_chunk_ms)) {
+    // Process audio chunks
+    const enum dequeue_result res = audio_msg_queue_dequeue(&audio_queue, &audio_chunk);
+    if (res == DEQUEUE_RESULT_SUCCESS) {
 
-      log_send_audio(audio_buffer, SAMPLES_LENGTH, counter);
-      previous_audio_chunk = tick;
-      counter += 1;
+      // TODO: also process the audio
+
+      log_send_audio(audio_chunk.data, AUDIO_BUFFER_SIZE, audio_counter);
+      audio_counter += 1;
     }
 
   }
@@ -274,16 +290,18 @@ static void APP_DMAConfig(void)
   LL_DMA_SetMode(DMA1, LL_DMA_CHANNEL_1, LL_DMA_MODE_CIRCULAR);
   // Peripheral address no increment
   LL_DMA_SetPeriphIncMode(DMA1, LL_DMA_CHANNEL_1, LL_DMA_PERIPH_NOINCREMENT);
-  // Memory address no increment
-  LL_DMA_SetMemoryIncMode(DMA1, LL_DMA_CHANNEL_1, LL_DMA_MEMORY_NOINCREMENT);
+  // Memory address increment
+  LL_DMA_SetMemoryIncMode(DMA1, LL_DMA_CHANNEL_1, LL_DMA_MEMORY_INCREMENT);
   // Peripheral data alignment : Word
-  LL_DMA_SetPeriphSize(DMA1, LL_DMA_CHANNEL_1, LL_DMA_PDATAALIGN_WORD);
+  LL_DMA_SetPeriphSize(DMA1, LL_DMA_CHANNEL_1, LL_DMA_PDATAALIGN_HALFWORD);
   // Memory data alignment : Word
-  LL_DMA_SetMemorySize(DMA1, LL_DMA_CHANNEL_1, LL_DMA_MDATAALIGN_WORD);
+  LL_DMA_SetMemorySize(DMA1, LL_DMA_CHANNEL_1, LL_DMA_MDATAALIGN_HALFWORD);
   // Data length
-  LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_1, 1);
+  LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_1, DMA_BUFFER_SIZE);
   // Sorce and target address
-  LL_DMA_ConfigAddresses(DMA1, LL_DMA_CHANNEL_1, (uint32_t)&ADC1->DR, (uint32_t)&ADCxConvertedDatas, LL_DMA_GetDataTransferDirection(DMA1, LL_DMA_CHANNEL_1));
+  LL_DMA_ConfigAddresses(DMA1, LL_DMA_CHANNEL_1, (uint32_t)&ADC1->DR,
+        (uint32_t)dma_buffer,
+        LL_DMA_GetDataTransferDirection(DMA1, LL_DMA_CHANNEL_1));
   // Enable DMA channel 1
   LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_1);
   // Enable transfer-complete interrupt
@@ -295,9 +313,16 @@ static void APP_DMAConfig(void)
 
 void APP_TransferCompleteCallback(void)
 {
-  // FIXME: Copy data to our processing buffer
+  // Push data into processing queue
+  struct audio_msg new_msg;
+  memcpy(new_msg.data, (void *)dma_buffer, sizeof(int16_t)*DMA_BUFFER_SIZE);
 
+  const enum enqueue_result result = audio_msg_queue_enqueue(&audio_queue, &new_msg);
+  if (result != ENQUEUE_RESULT_SUCCESS) {
+    printf("audio-queue-overflow tick=%lld", (long long)GetTick());
+  }
   printf("adc-transfer-complete tick=%lld", (long long)GetTick());
+
 }
 
 void APP_ErrorHandler(void)
