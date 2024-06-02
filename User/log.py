@@ -9,6 +9,7 @@ import uuid
 import queue
 import argparse
 import base64
+import traceback
 
 import serial
 import structlog
@@ -56,7 +57,7 @@ def parse_line(line: str) -> dict:
         try:
             e['sequence_no'] = int(e['seq'])
             d = base64.b64decode(e['data'])
-            d = numpy.frombuffer(d, dtype='>i2')
+            d = numpy.frombuffer(d, dtype='>i2').astype('int16')
             e['samples'] = d
             e['event'] = event
 
@@ -85,10 +86,11 @@ class DataReceiver():
             read_timeout=0.1,
             baudrate=921600,
         ):
-        self.queue_capacity = 20
-        self.buffer_blocks = self.queue_capacity // 2
+        self.queue_capacity = 100
+        self.buffer_blocks = self.queue_capacity // 4
         self.samplerate = 44100
-        self.blocksize = 64
+        self.blocksize = 2048
+        self.chunksize = 64
         self.serial = serial
         self.read_timeout = read_timeout
         self.baudrate = baudrate
@@ -111,24 +113,31 @@ class DataReceiver():
         Should fill outdata with audio from self.audio_queue
         """
         try:
-            log.debug('device-callback', status=status, time=time)
+            log.debug('device-callback', status=status, time=time,
+                queue_length=self.audio_queue.qsize())
 
-            assert frames == self.blocksize
+            assert frames == self.blocksize, (frames, self.blocksize)
             if status.output_underflow:
                 log.error('output-underflow', time=time)
 
-            assert not status
-            try:
-                data = self.audio_queue.get_nowait()
-            except queue.Empty as e:
-                log.error('queue-underflow', time=time)
-                data = numpy.zeros(frames)
+            assert not status, status
 
-            assert len(data) == len(outdata)
-            outdata[:] = data
+            chunks_needed = self.blocksize // self.chunksize
+            for i in range(chunks_needed):
+                try:
+                    chunk = self.audio_queue.get_nowait()
+                except queue.Empty as e:
+                    log.error('queue-underflow', time=time)
+                    chunk = numpy.zeros(self.chunksize)
+
+                assert len(chunk) == self.chunksize
+                s = self.chunksize
+                outdata[i*s:(i+1)*s, 0] = chunk
 
         except Exception as e:
-            print(e)
+            log.error('device-callback-exception', error=e)
+            print(traceback.format_exc())
+
             if self.output_stream:
                 self.output_stream.stop()
                 self.output_stream = None
@@ -139,7 +148,9 @@ class DataReceiver():
             n_samples=len(samples),
         )
 
-        # FIXME: assert the data format on input
+        assert len(samples) == self.chunksize, (len(samples), self.chunksize)
+        assert samples.dtype == numpy.int16, samples.dtype
+
         self.audio_queue.put_nowait(samples)
 
         if self.output_stream is None:
@@ -148,6 +159,11 @@ class DataReceiver():
                 log.info('audio-buffering-completed',
                     queue_length=self.audio_queue.qsize(),
                 )
+
+                print("create stream", 
+                    self.samplerate, self.blocksize,
+                    self.audio_device, self.audio_dtype)
+
                 # have buffered enough, start the stream
                 self.output_stream = sounddevice.OutputStream(
                     samplerate=self.samplerate,
@@ -191,7 +207,7 @@ class DataReceiver():
 
                 event_type = event.get('event', None)
                 if event_type == 'audio-block':
-                    self._add_audio_chunk(event['data'])
+                    self._add_audio_chunk(event['samples'])
 
 
 
