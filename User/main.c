@@ -57,6 +57,21 @@ uint32_t GetTick(void) {
   return systick_GetTick();
 }
 
+void dc_filter(int16_t *samples, int length)
+{
+    static float xm1 = 0.0f;
+    static float ym1 = 0.0f;
+    const float pole = 0.995;
+
+    for (int i=0; i<AUDIO_BUFFER_SIZE; i++) {
+        const float x = samples[i];
+        const float y = x - xm1 + pole * ym1;
+        xm1 = x;
+        ym1 = y;
+        samples[i] = y;
+    }
+}
+
 
 void
 log_send_audio(const int16_t *samples, int length, uint32_t sequence_no)
@@ -173,6 +188,9 @@ int main(void)
     // Process audio chunks
     const enum dequeue_result res = audio_msg_queue_dequeue(&audio_queue, &audio_chunk);
     if (res == DEQUEUE_RESULT_SUCCESS) {
+
+      // Remove DC offset
+      dc_filter(audio_chunk.data, AUDIO_BUFFER_SIZE);
 
       // TODO: also process the audio
 
