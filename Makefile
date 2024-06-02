@@ -24,6 +24,9 @@ USE_FREERTOS	?= n
 USE_DSP			?= y
 # Build with Waveshare e-paper lib, y:yes, n:no
 USE_EPAPER		?= n
+# Build with base64 support, via mbedtls 
+USE_BASE64		?= y
+
 # Programmer, jlink or pyocd
 FLASH_PROGRM	?= pyocd
 
@@ -163,6 +166,11 @@ CFILES 		+= Libraries/CMSIS-DSP/Source/BasicMathFunctions/BasicMathFunctions.c \
 		Libraries/CMSIS-DSP/Source/TransformFunctions/TransformFunctions.c
 INCLUDES	+= Libraries/CMSIS-DSP/Include \
 		Libraries/CMSIS-DSP/PrivateInclude
+endif
+
+ifeq ($(USE_BASE64),y)
+CFILES += ./Libraries/mbedtls/library/base64.c
+INCLUDES += Libraries/mbedtls/include/
 endif
 
 ifeq ($(USE_EPAPER),y)

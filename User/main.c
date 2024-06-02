@@ -12,6 +12,9 @@
 #include "py32f0xx_bsp_clock.h"
 #include "py32f0xx_bsp_printf.h"
 
+#include "base64.h"
+#include <string.h>
+
 #if 0
 #include "dsp/transform_functions.h"
 #define FFT_LENGTH 128
@@ -28,12 +31,45 @@ static void APP_DMAConfig(void);
 static void APP_GPIO_Config(void);
 static void APP_SystemClockConfig(void);
 
-const int MCU_CLOCK = 24000000;
 const int BLINK_RATE = 1000;
+
+#define SAMPLES_LENGTH 64
+#define SAMPLERATE 8000
 
 uint32_t GetTick(void) {
   return systick_GetTick();
 }
+
+
+
+
+void
+log_send_audio(const int16_t *samples, int length, uint32_t sequence_no)
+{
+    // OPT: iterate over chunks of the samples, encode them gradually, reduce size of buffer
+    static unsigned char buffer[256];
+    size_t written;
+
+    const int status = \
+        base64_encode(buffer, 256, &written, (const uint8_t *)samples, 2*length);
+    
+    if (status != BASE64_OK) {
+        printf("log-send-audio-error status=%d\r\n", status);
+        return;
+    }
+
+    printf("audio-block seq=%ld ", (long)sequence_no);
+
+    printf("data=");
+    for (int i=0; i<written; i++) {
+        BSP_UART_TxChar((char )buffer[i]);
+    }
+
+    printf(" a=b \r\n");
+}
+
+
+
 
 #if 0
 void test_fft()
@@ -64,8 +100,10 @@ int main(void)
 {
   APP_SystemClockConfig();
 
-  BSP_USART_Config(115200);
-  printf("ADC Timer Trigger DMA Demo\r\nClock: %ld\r\n", SystemCoreClock);
+  BSP_USART_Config(921600);
+  LL_mDelay(100);
+
+  printf("app-start clock=%ld \r\n", SystemCoreClock);
 
   APP_DMAConfig();
   APP_ADCConfig();
@@ -75,21 +113,39 @@ int main(void)
 
   APP_TimerInit();
 
-
+  // Status LED
   uint32_t previous_blink = 0;
+
+
+  // Dummy audio data. FIXME: fill with a sinewave or similar
+  const int sample_chunk_ms = (SAMPLES_LENGTH * 1000) / SAMPLERATE;
+  static int16_t audio_buffer[SAMPLES_LENGTH];
+  memset(audio_buffer, 0, 2*SAMPLES_LENGTH);
+  int counter = 0;
+  uint32_t previous_audio_chunk = 0;
 
 //   test_fft();
 
   while (1)
   {
-
     // FIXME: check and process input data buffers
 
     const uint32_t tick = GetTick();
+
+    // Blink the status LED
     if (tick > (previous_blink + BLINK_RATE)) {
+
       LL_GPIO_TogglePin(GPIOB, LL_GPIO_PIN_5);
       printf("blink tick=%lld\r\n", (long long)tick);
       previous_blink = tick;
+    }
+
+    // Send audio chunks
+    if (tick >= (previous_audio_chunk + sample_chunk_ms)) {
+
+      log_send_audio(audio_buffer, SAMPLES_LENGTH, counter);
+      previous_blink = tick;
+      counter += 1;
     }
 
   }
@@ -98,6 +154,7 @@ int main(void)
 static void APP_SystemClockConfig(void)
 {
   LL_RCC_HSI_Enable();
+  LL_RCC_HSI_SetCalibFreq(LL_RCC_HSICALIBRATION_24MHz);
   while(LL_RCC_HSI_IsReady() != 1);
 
   LL_RCC_SetAHBPrescaler(LL_RCC_SYSCLK_DIV_1);
@@ -105,8 +162,8 @@ static void APP_SystemClockConfig(void)
   while(LL_RCC_GetSysClkSource() != LL_RCC_SYS_CLKSOURCE_STATUS_HSISYS);
 
   LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_1);
-  LL_Init1msTick(MCU_CLOCK);
-  LL_SetSystemCoreClock(MCU_CLOCK);
+  LL_Init1msTick(24000000);
+  LL_SetSystemCoreClock(24000000);
 }
 
 static void APP_GPIO_Config(void)
