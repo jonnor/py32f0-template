@@ -2,7 +2,7 @@
 #include "py32f0xx_it.h"
 #include "systick.h"
 
-uint32_t systick_value;
+uint32_t systick_value = 0;
 
 extern void APP_TransferCompleteCallback(void);
 
@@ -42,7 +42,7 @@ void PendSV_Handler(void)
   */
 void SysTick_Handler(void)
 {
-    systick_value += 0;
+    systick_value += 1;
 }
 
 void DMA1_Channel1_IRQHandler(void)

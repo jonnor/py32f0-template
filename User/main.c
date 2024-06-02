@@ -41,8 +41,6 @@ uint32_t GetTick(void) {
 }
 
 
-
-
 void
 log_send_audio(const int16_t *samples, int length, uint32_t sequence_no)
 {
@@ -144,7 +142,7 @@ int main(void)
     if (tick >= (previous_audio_chunk + sample_chunk_ms)) {
 
       log_send_audio(audio_buffer, SAMPLES_LENGTH, counter);
-      previous_blink = tick;
+      previous_audio_chunk = tick;
       counter += 1;
     }
 
@@ -164,6 +162,8 @@ static void APP_SystemClockConfig(void)
   LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_1);
   LL_Init1msTick(24000000);
   LL_SetSystemCoreClock(24000000);
+
+  LL_SYSTICK_EnableIT();
 }
 
 static void APP_GPIO_Config(void)
