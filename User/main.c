@@ -163,10 +163,10 @@ int main(void)
     const uint32_t tick = GetTick();
 
     // Blink the status LED
-    if (tick > (previous_blink + BLINK_RATE)) {
+    if (tick >= (previous_blink + BLINK_RATE)) {
 
       LL_GPIO_TogglePin(GPIOB, LL_GPIO_PIN_5);
-      printf("blink tick=%lld\r\n", (long long)tick);
+      printf("blink tick=%ld\r\n", (long)tick);
       previous_blink = tick;
     }
 
@@ -212,9 +212,11 @@ static void APP_TimerInit(void)
 {
   // FIXME: set samplerate
 
+  // blink tick=64064
+
   LL_APB1_GRP2_EnableClock(LL_APB1_GRP2_PERIPH_TIM1);
-  LL_TIM_SetPrescaler(TIM1, (SystemCoreClock / 6000) - 1);
-  LL_TIM_SetAutoReload(TIM1, 6000 - 1);
+  LL_TIM_SetPrescaler(TIM1, 24);
+  LL_TIM_SetAutoReload(TIM1, 125);
   /* Triggered by update */
   LL_TIM_SetTriggerOutput(TIM1, LL_TIM_TRGO_UPDATE);
 
@@ -319,9 +321,9 @@ void APP_TransferCompleteCallback(void)
 
   const enum enqueue_result result = audio_msg_queue_enqueue(&audio_queue, &new_msg);
   if (result != ENQUEUE_RESULT_SUCCESS) {
-    printf("audio-queue-overflow tick=%lld", (long long)GetTick());
+    printf("audio-queue-overflow tick=%ld \r\n", (long)GetTick());
   }
-  printf("adc-transfer-complete tick=%lld", (long long)GetTick());
+  printf("adc-transfer-complete tick=%ld \r\n", (long)GetTick());
 
 }
 
