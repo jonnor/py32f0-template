@@ -88,11 +88,12 @@ class DataReceiver():
         ):
         self.queue_capacity = 100
         self.buffer_blocks = self.queue_capacity // 4
-        self.samplerate = 44100
+        self.samplerate = 8000
         self.blocksize = 2048
         self.chunksize = 64
         self.serial = serial
         self.read_timeout = read_timeout
+        self.read_size = 100
         self.baudrate = baudrate
         self.audio_device = audio_device
         self.channels = 1
@@ -191,17 +192,38 @@ class DataReceiver():
         self.serial_device.reset_input_buffer()
         log.info("open-serial", device=self.serial)
 
+        incoming : str = ""
         while True:
-            lines = self.serial_device.readlines()
-            #log.debug('readlines', lines=len(lines))
+            end = "\n"
 
-            for data in lines:
-                try:
-                    line = data.decode('utf-8')
-                except UnicodeDecodeError as e:
-                    log.warning('decode-error', error=e, data=data)
+            # We do the splitting into lines ourselves,
+            # because pyserial readlines() returns lines chopped in the middle...
+            data = self.serial_device.read(self.read_size)
+            try:
+                data = data.decode('utf-8')
+            except UnicodeDecodeError as e:
+                log.warning('decode-error', error=e, data=data)
+                continue
 
-                log.debug('line-received', line=line)
+            incoming += data
+            split = incoming.split(end)
+
+            #log.debug('check', splits=len(split), buffer=incoming)
+
+            if len(split) == 0:
+                continue
+
+            incoming = split[-1] # remainder
+            lines = split[:-1]
+
+            #print('lines', lines, incoming)
+
+            #assert len(lines) >= 1, len(lines)
+
+            for line in lines:
+                line = line.strip() # remove \r
+
+                #log.debug('line-received', line=line)
 
                 event = parse_line(line)
 
