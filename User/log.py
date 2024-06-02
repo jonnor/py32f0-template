@@ -57,7 +57,7 @@ def parse_line(line: str) -> dict:
         try:
             e['sequence_no'] = int(e['seq'])
             d = base64.b64decode(e['data'])
-            d = numpy.frombuffer(d, dtype='>i2').astype('int16')
+            d = numpy.frombuffer(d, dtype='<i2').astype('int16')
             e['samples'] = d
             e['event'] = event
 

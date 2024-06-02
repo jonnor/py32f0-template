@@ -14,6 +14,11 @@
 
 #include "base64.h"
 #include <string.h>
+#include <math.h>
+
+#ifndef M_PI
+#define M_PI 3.1415926535897932384626433832
+#endif
 
 #if 0
 #include "dsp/transform_functions.h"
@@ -46,7 +51,7 @@ log_send_audio(const int16_t *samples, int length, uint32_t sequence_no)
 {
     // OPT: iterate over chunks of the samples, encode them gradually, reduce size of buffer
     static unsigned char buffer[256];
-    size_t written;
+    size_t written = 0;
 
     const int status = \
         base64_encode(buffer, 256, &written, (const uint8_t *)samples, 2*length);
@@ -94,6 +99,15 @@ void test_fft()
 }
 #endif
 
+void
+sinewave_fill(int16_t *audio, size_t length, int sr, float freq, int amplitude)
+{
+    for (int i=0; i<length; i++) {
+        const float s = sinf(2.0*M_PI*(freq/sr)*i);
+        audio[i] = amplitude * s;
+    }
+}
+
 int main(void)
 {
   APP_SystemClockConfig();
@@ -118,7 +132,11 @@ int main(void)
   // Dummy audio data. FIXME: fill with a sinewave or similar
   const int sample_chunk_ms = (SAMPLES_LENGTH * 1000) / SAMPLERATE;
   static int16_t audio_buffer[SAMPLES_LENGTH];
+
   memset(audio_buffer, 0, 2*SAMPLES_LENGTH);
+
+  sinewave_fill(audio_buffer, SAMPLES_LENGTH, SAMPLERATE, 100.0, 10000);
+
   int counter = 0;
   uint32_t previous_audio_chunk = 0;
 
