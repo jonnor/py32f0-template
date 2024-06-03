@@ -228,11 +228,9 @@ static void APP_GPIO_Config(void)
 
 static void APP_TimerInit(void)
 {
-  // FIXME: set samplerate
-
-  // blink tick=64064
 
   LL_APB1_GRP2_EnableClock(LL_APB1_GRP2_PERIPH_TIM1);
+  // Configure timer for 8000 Hz
   LL_TIM_SetPrescaler(TIM1, 24);
   LL_TIM_SetAutoReload(TIM1, 125);
   /* Triggered by update */
@@ -268,13 +266,13 @@ static void APP_ADCConfig(void)
   // Calibrate end
 
   /* PA0 as ADC input */
-  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_0, LL_GPIO_MODE_ANALOG);
+  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_1, LL_GPIO_MODE_ANALOG);
   /* Set ADC channel and clock source when ADEN=0, set other configurations when ADSTART=0 */
   LL_ADC_SetCommonPathInternalCh(__LL_ADC_COMMON_INSTANCE(ADC1), LL_ADC_PATH_INTERNAL_NONE);
 
   LL_ADC_SetClock(ADC1, LL_ADC_CLOCK_SYNC_PCLK_DIV2);
   LL_ADC_SetResolution(ADC1, LL_ADC_RESOLUTION_12B);
-  LL_ADC_SetResolution(ADC1, LL_ADC_DATA_ALIGN_RIGHT);
+  LL_ADC_SetDataAlignment(ADC1, LL_ADC_DATA_ALIGN_RIGHT);
   LL_ADC_SetLowPowerMode(ADC1, LL_ADC_LP_MODE_NONE);
   LL_ADC_SetSamplingTimeCommonChannels(ADC1, LL_ADC_SAMPLINGTIME_41CYCLES_5);
 
@@ -288,14 +286,13 @@ static void APP_ADCConfig(void)
   /* Enable: each conversions in the sequence need to be triggerred separately */
   LL_ADC_REG_SetSequencerDiscont(ADC1, LL_ADC_REG_SEQ_DISCONT_DISABLE);
   /* Can be multiple channels */
-  LL_ADC_REG_SetSequencerChannels(ADC1, LL_ADC_CHANNEL_4);
+  LL_ADC_REG_SetSequencerChannels(ADC1, LL_ADC_CHANNEL_1);
 
   LL_ADC_Enable(ADC1);
 }
 
 static void APP_DMAConfig(void)
 {
-  // TODO: use a larger DMA buffer, to reduce intrrrupt rate
 
   LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_DMA1);
   LL_APB1_GRP2_EnableClock(LL_APB1_GRP2_PERIPH_SYSCFG);

@@ -86,8 +86,8 @@ class DataReceiver():
             read_timeout=0.1,
             baudrate=921600,
         ):
-        self.queue_capacity = 100
-        self.buffer_blocks = self.queue_capacity // 4
+        self.queue_capacity = 1000
+        self.buffer_blocks = 100
         self.samplerate = 8000
         self.blocksize = 2048
         self.chunksize = 64
