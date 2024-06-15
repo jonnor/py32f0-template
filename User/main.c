@@ -49,6 +49,9 @@ QUEUE_DEFINITION(audio_msg_queue, struct audio_msg);
 struct audio_msg_queue audio_queue;
 __IO uint16_t dma_buffer[AUDIO_BUFFER_SIZE];
 
+uint64_t audio_queue_overflows = 0;
+uint64_t audio_queue_transfers = 0;
+
 Fvad vad_instance;
 
 static void APP_ADCConfig(void);
@@ -60,7 +63,7 @@ static void APP_SystemClockConfig(void);
 const int BLINK_RATE = 1000;
 
 
-uint32_t GetTick(void) {
+uint64_t GetTick(void) {
   return systick_GetTick();
 }
 
@@ -189,13 +192,14 @@ int main(void)
   while (1)
   {
 
-    const uint32_t tick = GetTick();
+    const uint64_t tick = GetTick();
 
     // Blink the status LED
     if (tick >= (previous_blink + BLINK_RATE)) {
 
       LL_GPIO_TogglePin(GPIOB, LL_GPIO_PIN_5);
-      printf("blink tick=%ld\r\n", (long)tick);
+      printf("blink tick=%ld overflows=%ld \r\n",
+                (long)tick, (long)audio_queue_overflows);
       previous_blink = tick;
     }
 
@@ -204,18 +208,24 @@ int main(void)
     if (res == DEQUEUE_RESULT_SUCCESS) {
 
       // Remove DC offset
+#if 1
       dc_filter(audio_chunk.data, AUDIO_BUFFER_SIZE);
-
+#endif
       // Process the audio
+#if 1
       const int result = fvad_process(&vad_instance, audio_chunk.data, AUDIO_BUFFER_SIZE);
       printf("vad-processed res=%d \r\n", result);
+#endif
 
       // Send audio over serial
+#if 0
       log_send_audio(audio_chunk.data, AUDIO_BUFFER_SIZE, audio_counter);
+#endif
       audio_counter += 1;
      
       const uint32_t duration = GetTick() - tick;
-      printf("audio-chunk-processed duration=%ld \r\n", (long)duration);
+      printf("audio-processed tick=%ld duration=%ld \r\n",
+            (long)tick, (long)duration);
     }
 
   }
@@ -356,9 +366,9 @@ void APP_TransferCompleteCallback(void)
 
   const enum enqueue_result result = audio_msg_queue_enqueue(&audio_queue, &new_msg);
   if (result != ENQUEUE_RESULT_SUCCESS) {
-    printf("audio-queue-overflow tick=%ld \r\n", (long)GetTick());
+      audio_queue_overflows += 1;
   }
-  printf("adc-transfer-complete tick=%ld \r\n", (long)GetTick());
+  audio_queue_transfers += 1;
 
 }
 

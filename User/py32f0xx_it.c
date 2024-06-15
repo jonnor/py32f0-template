@@ -2,7 +2,7 @@
 #include "py32f0xx_it.h"
 #include "systick.h"
 
-uint32_t systick_value = 0;
+uint64_t systick_value = 0;
 
 extern void APP_TransferCompleteCallback(void);
 
