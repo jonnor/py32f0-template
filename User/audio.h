@@ -14,11 +14,15 @@
 
 // Based on arm_mfcc_q15 from CMSIS-DSP
 
-void
+int
 mel_filters( q15_t *samples, q15_t *tmp, q31_t *mels)
 {
+
+#if 0
+    return 0;
+#else
+
     // FIXME: do not forward declare, initialize on spot2
-    
     q15_t m;
     uint32_t index;
     uint32_t fftShift=0;
@@ -117,4 +121,5 @@ mel_filters( q15_t *samples, q15_t *tmp, q31_t *mels)
 
     return(status);
 
+#endif
 }

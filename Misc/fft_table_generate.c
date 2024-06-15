@@ -105,7 +105,8 @@ print_table(const double *table, int table_length,
     };
     */
 
-    printf("const %s %s %s%d = {\n", ctype, specifiers, prefix, fft_length);
+    printf("const %s %s %s%d[%d] = {\n",
+        ctype, specifiers, prefix, fft_length, table_length);
 
     for (int i=0; i<table_length; i++) {
         const double value = table[i];
@@ -126,11 +127,21 @@ print_table(const double *table, int table_length,
     return 0;
 }
 
-int main() {
+int main(int argc, const char *argv[])
+{
 
-    // TODO: support FFT length as input
+    if (argc != 2) {
+        fprintf(stderr, "Usage: fft_table_generate FFT_LENGTH\n");
+        return -1;
+    }
+
+    const int fft_length = atoi(argv[1]);
+    if (fft_length == 0) {
+        fprintf(stderr, "FFT length not a valid number\n");
+        return -1;
+    }
+
     // FIXME: q31 will probably need minor fixes
-    const int fft_length = 8192/2;
     const int fixedpoint_bits = 15;
     const char *ctype = "q15_t";
     const char *specifiers = "__ALIGNED(4)";

@@ -25,11 +25,13 @@
 #define M_PI 3.1415926535897932384626433832
 #endif
 
-#if 0
+#if 1
 #include "dsp/transform_functions.h"
-#define FFT_LENGTH 128
+#include "arm_const_structs.h"
+#define FFT_LENGTH 64
 #define N_MELS 40
 
+#include "fft_tables.h"
 #include "audio.h"
 #endif
 
@@ -125,28 +127,53 @@ log_fvad_features(Fvad *fvad) {
 
 
 
-#if 0
+#if 1
+
+
+arm_status
+rfft_init_q15_64(arm_rfft_instance_q15 * S,
+    uint32_t ifftFlagR,                                           
+    uint32_t bitReverseFlag )                                     
+{                                                                                    
+    /*  Initialize the Flag for selection of RFFT or RIFFT */
+    S->ifftFlagR = (uint8_t) ifftFlagR;                           
+    S->bitReverseFlagR = (uint8_t) bitReverseFlag;                
+
+    S->fftLenReal = (uint16_t)64;  
+    S->pTwiddleAReal = fft_table_q15_a_64;             
+    S->pTwiddleBReal = fft_table_q15_b_64;                    
+    S->twidCoefRModifier = 1; // twiddle table matches length
+
+    S->pCfft = &arm_cfft_sR_q15_len64;                     
+
+    return (ARM_MATH_SUCCESS);
+}
+
+
 void test_fft()
 {
+    const uint64_t start = GetTick();
 
-    arm_rfft_instance_q15 rfft;
-
-    static volatile q15_t dma_buffer[FFT_LENGTH] = {1,};
+    arm_rfft_instance_q15 rfft = {0, };
 
     static q15_t samples[FFT_LENGTH] = {0,};
-
-    memcpy(samples, dma_buffer, sizeof(q15_t)*FFT_LENGTH);
 
     static q15_t out[FFT_LENGTH*2] = {0, }; 
     static q31_t mels[N_MELS] = {0, }; 
 
-    mel_filters(samples, out, mels);
+    //mel_filters(samples, out, mels);
 
-    //const arm_status init_status = arm_rfft_init_q15(&rfft, FFT_LENGTH, 1, 1);
-    //const arm_status init_status = arm_rfft_init_64_q15(&rfft, 1, 1);
+    const arm_status init_status = rfft_init_q15_64(&rfft, 0, 1);
 
     // NOTE: output is scaled differently based on FFT_LENGTH
-    //arm_rfft_q15(&rfft, samples, out);
+    for (int i=0; i<10; i++) {
+        arm_rfft_q15(&rfft, samples, out);
+    }
+    
+    const uint32_t duration = GetTick() - start;
+
+    printf("test-fft init=%d duration=%d \r\n",
+        init_status, duration);
 }
 #endif
 
@@ -199,7 +226,7 @@ int main(void)
 
   int audio_counter = 0;
 
-//   test_fft();
+   test_fft();
 
   struct audio_msg audio_chunk;
 
