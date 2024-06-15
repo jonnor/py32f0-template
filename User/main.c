@@ -108,6 +108,20 @@ log_send_audio(const int16_t *samples, int length, uint32_t sequence_no)
     printf(" a=b \r\n");
 }
 
+void
+log_fvad_features(Fvad *fvad) {
+    printf("vfad-features power=%d f=[", fvad->core.total_power);
+
+    const int n_features = kNumChannels;
+    for (int i=0; i<n_features; i++) {
+        printf("%d", fvad->core.feature_vector[i]);
+        if (i < (n_features-1)) {
+            BSP_UART_TxChar(',');
+        }
+    }
+    printf("] \r\n");
+
+}
 
 
 
@@ -216,6 +230,8 @@ int main(void)
       const int result = fvad_process(&vad_instance, audio_chunk.data, AUDIO_BUFFER_SIZE);
       printf("vad-processed res=%d \r\n", result);
 #endif
+
+    log_fvad_features(&vad_instance);
 
       // Send audio over serial
 #if 0
