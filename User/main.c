@@ -13,6 +13,10 @@
 #include "py32f0xx_bsp_printf.h"
 
 #include "base64.h"
+
+#include <fvad.h>
+#include <fvad.c>
+
 #include "queue.h"
 #include <string.h>
 #include <math.h>
@@ -29,8 +33,11 @@
 #include "audio.h"
 #endif
 
-#define AUDIO_BUFFER_SIZE 64
+#define AUDIO_SAMPLERATE 8000
+// for libfvad, the frame size must be 10/20/30ms
+#define AUDIO_BUFFER_SIZE 80
 #define DMA_BUFFER_SIZE (AUDIO_BUFFER_SIZE)
+
 
 struct audio_msg {
     int16_t data[AUDIO_BUFFER_SIZE];
@@ -42,6 +49,8 @@ QUEUE_DEFINITION(audio_msg_queue, struct audio_msg);
 struct audio_msg_queue audio_queue;
 __IO uint16_t dma_buffer[AUDIO_BUFFER_SIZE];
 
+Fvad vad_instance;
+
 static void APP_ADCConfig(void);
 static void APP_TimerInit(void);
 static void APP_DMAConfig(void);
@@ -50,8 +59,6 @@ static void APP_SystemClockConfig(void);
 
 const int BLINK_RATE = 1000;
 
-#define SAMPLES_LENGTH 64
-#define SAMPLERATE 8000
 
 uint32_t GetTick(void) {
   return systick_GetTick();
@@ -154,12 +161,19 @@ int main(void)
 
   audio_msg_queue_init(&audio_queue);
 
+    // Setup VAD
+    fvad_reset(&vad_instance);
+    const int VAD_MODE = 3;
+    const int mode_status = fvad_set_mode(&vad_instance, VAD_MODE);
+    const int samplerate_status = fvad_set_sample_rate(&vad_instance, AUDIO_SAMPLERATE);
+    printf("vad-init mode=%d samplerate=%d \r\n", mode_status, samplerate_status);
+
   // Status LED
   uint32_t previous_blink = 0;
 
 
 #if 0
-  // Dummy audio data. FIXME: fill with a sinewave or similar
+  // Dummy audio data. FIXME: fill with a sinewave or similar, push in via queue
   const int sample_chunk_ms = (SAMPLES_LENGTH * 1000) / SAMPLERATE;
   static int16_t audio_buffer[SAMPLES_LENGTH];
   memset(audio_buffer, 0, 2*SAMPLES_LENGTH);
@@ -192,10 +206,16 @@ int main(void)
       // Remove DC offset
       dc_filter(audio_chunk.data, AUDIO_BUFFER_SIZE);
 
-      // TODO: also process the audio
+      // Process the audio
+      const int result = fvad_process(&vad_instance, audio_chunk.data, AUDIO_BUFFER_SIZE);
+      printf("vad-processed res=%d \r\n", result);
 
+      // Send audio over serial
       log_send_audio(audio_chunk.data, AUDIO_BUFFER_SIZE, audio_counter);
       audio_counter += 1;
+     
+      const uint32_t duration = GetTick() - tick;
+      printf("audio-chunk-processed duration=%ld \r\n", (long)duration);
     }
 
   }

@@ -26,6 +26,8 @@ USE_DSP			?= y
 USE_EPAPER		?= n
 # Build with base64 support, via mbedtls 
 USE_BASE64		?= y
+# Build with libfvad support
+USE_LIBFVAD		?= y
 
 # Programmer, jlink or pyocd
 FLASH_PROGRM	?= pyocd
@@ -171,6 +173,24 @@ endif
 ifeq ($(USE_BASE64),y)
 CFILES += ./Libraries/mbedtls/library/base64.c
 INCLUDES += Libraries/mbedtls/include/
+endif
+
+ifeq ($(USE_LIBFVAD),y)
+
+CFILES += Libraries/libfvad/src/vad/vad_core.c \
+		Libraries/libfvad/src/vad/vad_filterbank.c \
+		Libraries/libfvad/src/vad/vad_gmm.c \
+		Libraries/libfvad/src/vad/vad_sp.c \
+		Libraries/libfvad/src/signal_processing/spl_inl.c \
+		Libraries/libfvad/src/signal_processing/energy.c \
+		Libraries/libfvad/src/signal_processing/get_scaling_square.c \
+		Libraries/libfvad/src/signal_processing/division_operations.c \
+		Libraries/libfvad/src/signal_processing/resample_fractional.c \
+		Libraries/libfvad/src/signal_processing/resample_by_2_internal.c \
+		Libraries/libfvad/src/signal_processing/resample_48khz.c
+
+INCLUDES += Libraries/libfvad/include/ \
+		Libraries/libfvad/src/
 endif
 
 ifeq ($(USE_EPAPER),y)
