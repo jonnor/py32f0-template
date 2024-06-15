@@ -28,8 +28,8 @@
 #if 1
 #include "dsp/transform_functions.h"
 #include "arm_const_structs.h"
-#define FFT_LENGTH 64
-#define N_MELS 40
+#define FFT_LENGTH 128
+#define SPECTRUM_LENGTH 32
 
 #include "fft_tables.h"
 #include "audio.h"
@@ -37,7 +37,7 @@
 
 #define AUDIO_SAMPLERATE 8000
 // for libfvad, the frame size must be 10/20/30ms
-#define AUDIO_BUFFER_SIZE 80
+#define AUDIO_BUFFER_SIZE 128
 #define DMA_BUFFER_SIZE (AUDIO_BUFFER_SIZE)
 
 
@@ -126,30 +126,58 @@ log_fvad_features(Fvad *fvad) {
 }
 
 
-
-#if 1
-
-
 arm_status
 rfft_init_q15_64(arm_rfft_instance_q15 * S,
     uint32_t ifftFlagR,                                           
     uint32_t bitReverseFlag )                                     
 {                                                                                    
     /*  Initialize the Flag for selection of RFFT or RIFFT */
-    S->ifftFlagR = (uint8_t) ifftFlagR;                           
-    S->bitReverseFlagR = (uint8_t) bitReverseFlag;                
-
-    S->fftLenReal = (uint16_t)64;  
-    S->pTwiddleAReal = fft_table_q15_a_64;             
-    S->pTwiddleBReal = fft_table_q15_b_64;                    
+    S->ifftFlagR = (uint8_t) ifftFlagR;
+    S->bitReverseFlagR = (uint8_t) bitReverseFlag;
     S->twidCoefRModifier = 1; // twiddle table matches length
 
+    S->fftLenReal = (uint16_t)64;
+    S->pTwiddleAReal = fft_table_q15_a_64;
+    S->pTwiddleBReal = fft_table_q15_b_64;
     S->pCfft = &arm_cfft_sR_q15_len64;                     
 
     return (ARM_MATH_SUCCESS);
 }
 
+arm_status
+rfft_init_q15_128(arm_rfft_instance_q15 * S,
+    uint32_t ifftFlagR,                                           
+    uint32_t bitReverseFlag )                                     
+{                                                                                    
+    /*  Initialize the Flag for selection of RFFT or RIFFT */
+    S->ifftFlagR = (uint8_t) ifftFlagR;
+    S->bitReverseFlagR = (uint8_t) bitReverseFlag;
+    S->twidCoefRModifier = 1; // twiddle table matches length
 
+    S->fftLenReal = (uint16_t)128;
+    S->pTwiddleAReal = fft_table_q15_a_128;
+    S->pTwiddleBReal = fft_table_q15_b_128;
+    S->pCfft = &arm_cfft_sR_q15_len128;
+
+    return (ARM_MATH_SUCCESS);
+}
+
+
+void
+spectrum_summarize_mean(q15_t *fft, int length,
+                    q15_t *out, int out_length)
+{
+    const int bin_width = length / out_length;
+    for (int i=0; i<out_length; i++) {
+        const int start = i*bin_width;
+        q15_t mean = 0;
+        arm_mean_q15(fft+start, bin_width, &mean);
+        out[i] = mean;
+    }
+}
+
+
+#if 1
 void test_fft()
 {
     const uint64_t start = GetTick();
@@ -159,20 +187,28 @@ void test_fft()
     static q15_t samples[FFT_LENGTH] = {0,};
 
     static q15_t out[FFT_LENGTH*2] = {0, }; 
-    static q31_t mels[N_MELS] = {0, }; 
+    static q15_t spectrum[SPECTRUM_LENGTH] = {0, }; 
 
     //mel_filters(samples, out, mels);
 
+#if FFT_LENGTH==64
     const arm_status init_status = rfft_init_q15_64(&rfft, 0, 1);
+#elif FFT_LENGTH==128
+    const arm_status init_status = rfft_init_q15_128(&rfft, 0, 1);
+#else
+#error "Unsupported FFT length"
+#endif
 
     // NOTE: output is scaled differently based on FFT_LENGTH
     for (int i=0; i<10; i++) {
         arm_rfft_q15(&rfft, samples, out);
+
+        spectrum_summarize_mean(samples, FFT_LENGTH, spectrum, SPECTRUM_LENGTH);
     }
     
     const uint32_t duration = GetTick() - start;
 
-    printf("test-fft init=%d duration=%d \r\n",
+    printf("test-fft init=%d duration=%ld \r\n",
         init_status, duration);
 }
 #endif
@@ -205,12 +241,14 @@ int main(void)
 
   audio_msg_queue_init(&audio_queue);
 
+#if 0
     // Setup VAD
     fvad_reset(&vad_instance);
     const int VAD_MODE = 3;
     const int mode_status = fvad_set_mode(&vad_instance, VAD_MODE);
     const int samplerate_status = fvad_set_sample_rate(&vad_instance, AUDIO_SAMPLERATE);
     printf("vad-init mode=%d samplerate=%d \r\n", mode_status, samplerate_status);
+#endif
 
   // Status LED
   uint32_t previous_blink = 0;
@@ -253,12 +291,11 @@ int main(void)
       dc_filter(audio_chunk.data, AUDIO_BUFFER_SIZE);
 #endif
       // Process the audio
-#if 1
+#if 0
       const int result = fvad_process(&vad_instance, audio_chunk.data, AUDIO_BUFFER_SIZE);
       printf("vad-processed res=%d \r\n", result);
-#endif
-
     log_fvad_features(&vad_instance);
+#endif
 
       // Send audio over serial
 #if 0
@@ -269,7 +306,7 @@ int main(void)
       const uint32_t duration = GetTick() - tick;
       printf("audio-processed tick=%ld duration=%ld \r\n",
             (long)tick, (long)duration);
-    }
+      }
 
   }
 }
