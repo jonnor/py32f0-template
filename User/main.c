@@ -40,6 +40,7 @@
 #define AUDIO_BUFFER_SIZE 128
 #define DMA_BUFFER_SIZE (AUDIO_BUFFER_SIZE)
 
+#define SEND_BUFFER_SIZE (AUDIO_BUFFER_SIZE*4)
 
 struct audio_msg {
     int16_t data[AUDIO_BUFFER_SIZE];
@@ -89,11 +90,11 @@ void
 log_send_audio(const int16_t *samples, int length, uint32_t sequence_no)
 {
     // OPT: iterate over chunks of the samples, encode them gradually, reduce size of buffer
-    static unsigned char buffer[256];
+    static unsigned char buffer[SEND_BUFFER_SIZE];
     size_t written = 0;
 
     const int status = \
-        base64_encode(buffer, 256, &written, (const uint8_t *)samples, 2*length);
+        base64_encode(buffer, SEND_BUFFER_SIZE, &written, (const uint8_t *)samples, 2*length);
     
     if (status != BASE64_OK) {
         printf("log-send-audio-error status=%d\r\n", status);
@@ -162,6 +163,18 @@ rfft_init_q15_128(arm_rfft_instance_q15 * S,
     return (ARM_MATH_SUCCESS);
 }
 
+arm_status
+rfft_init(arm_rfft_instance_q15 * rfft)
+{
+#if FFT_LENGTH==64
+    const arm_status init_status = rfft_init_q15_64(rfft, 0, 1);
+#elif FFT_LENGTH==128
+    const arm_status init_status = rfft_init_q15_128(rfft, 0, 1);
+#else
+#error "Unsupported FFT length"
+#endif
+    return init_status;
+}
 
 void
 spectrum_summarize_mean(q15_t *fft, int length,
@@ -176,42 +189,6 @@ spectrum_summarize_mean(q15_t *fft, int length,
     }
 }
 
-
-#if 1
-void test_fft()
-{
-    const uint64_t start = GetTick();
-
-    arm_rfft_instance_q15 rfft = {0, };
-
-    static q15_t samples[FFT_LENGTH] = {0,};
-
-    static q15_t out[FFT_LENGTH*2] = {0, }; 
-    static q15_t spectrum[SPECTRUM_LENGTH] = {0, }; 
-
-    //mel_filters(samples, out, mels);
-
-#if FFT_LENGTH==64
-    const arm_status init_status = rfft_init_q15_64(&rfft, 0, 1);
-#elif FFT_LENGTH==128
-    const arm_status init_status = rfft_init_q15_128(&rfft, 0, 1);
-#else
-#error "Unsupported FFT length"
-#endif
-
-    // NOTE: output is scaled differently based on FFT_LENGTH
-    for (int i=0; i<10; i++) {
-        arm_rfft_q15(&rfft, samples, out);
-
-        spectrum_summarize_mean(samples, FFT_LENGTH, spectrum, SPECTRUM_LENGTH);
-    }
-    
-    const uint32_t duration = GetTick() - start;
-
-    printf("test-fft init=%d duration=%ld \r\n",
-        init_status, duration);
-}
-#endif
 
 void
 sinewave_fill(int16_t *audio, size_t length, int sr, float freq, int amplitude)
@@ -262,9 +239,15 @@ int main(void)
   sinewave_fill(audio_buffer, SAMPLES_LENGTH, SAMPLERATE, 100.0, 10000);
 #endif
 
-  int audio_counter = 0;
+    // Audio preprocessing setup
+    arm_rfft_instance_q15 rfft = {0, };
 
-   test_fft();
+    static q15_t fft_out[FFT_LENGTH*2] = {0, }; 
+    static q15_t spectrum[SPECTRUM_LENGTH] = {0, }; 
+    rfft_init(&rfft);
+
+
+  int audio_counter = 0;
 
   struct audio_msg audio_chunk;
 
@@ -291,14 +274,22 @@ int main(void)
       dc_filter(audio_chunk.data, AUDIO_BUFFER_SIZE);
 #endif
       // Process the audio
+
+    // STFT
+#if 1
+        arm_rfft_q15(&rfft, audio_chunk.data, fft_out);
+        spectrum_summarize_mean(fft_out, FFT_LENGTH, spectrum, SPECTRUM_LENGTH);
+#endif
+    
 #if 0
+      // FVAD
       const int result = fvad_process(&vad_instance, audio_chunk.data, AUDIO_BUFFER_SIZE);
       printf("vad-processed res=%d \r\n", result);
     log_fvad_features(&vad_instance);
 #endif
 
       // Send audio over serial
-#if 0
+#if 1
       log_send_audio(audio_chunk.data, AUDIO_BUFFER_SIZE, audio_counter);
 #endif
       audio_counter += 1;
