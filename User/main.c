@@ -25,15 +25,12 @@
 #define M_PI 3.1415926535897932384626433832
 #endif
 
-#if 1
-#include "dsp/transform_functions.h"
-#include "arm_const_structs.h"
 #define FFT_LENGTH 128
 #define SPECTRUM_LENGTH 32
 
-#include "fft_tables.h"
+#include "fft.h"
 #include "audio.h"
-#endif
+
 
 #define AUDIO_SAMPLERATE 8000
 // for libfvad, the frame size must be 10/20/30ms
@@ -73,21 +70,6 @@ const int BLINK_RATE = 500;
 
 uint64_t GetTick(void) {
   return systick_GetTick();
-}
-
-void dc_filter(int16_t *samples, int length)
-{
-    static float xm1 = 0.0f;
-    static float ym1 = 0.0f;
-    const float pole = 0.995;
-
-    for (int i=0; i<AUDIO_BUFFER_SIZE; i++) {
-        const float x = samples[i];
-        const float y = x - xm1 + pole * ym1;
-        xm1 = x;
-        ym1 = y;
-        samples[i] = y;
-    }
 }
 
 
@@ -132,67 +114,7 @@ log_fvad_features(Fvad *fvad) {
 }
 
 
-arm_status
-rfft_init_q15_64(arm_rfft_instance_q15 * S,
-    uint32_t ifftFlagR,                                           
-    uint32_t bitReverseFlag )                                     
-{                                                                                    
-    /*  Initialize the Flag for selection of RFFT or RIFFT */
-    S->ifftFlagR = (uint8_t) ifftFlagR;
-    S->bitReverseFlagR = (uint8_t) bitReverseFlag;
-    S->twidCoefRModifier = 1; // twiddle table matches length
 
-    S->fftLenReal = (uint16_t)64;
-    S->pTwiddleAReal = fft_table_q15_a_64;
-    S->pTwiddleBReal = fft_table_q15_b_64;
-    S->pCfft = &arm_cfft_sR_q15_len64;                     
-
-    return (ARM_MATH_SUCCESS);
-}
-
-arm_status
-rfft_init_q15_128(arm_rfft_instance_q15 * S,
-    uint32_t ifftFlagR,                                           
-    uint32_t bitReverseFlag )                                     
-{                                                                                    
-    /*  Initialize the Flag for selection of RFFT or RIFFT */
-    S->ifftFlagR = (uint8_t) ifftFlagR;
-    S->bitReverseFlagR = (uint8_t) bitReverseFlag;
-    S->twidCoefRModifier = 1; // twiddle table matches length
-
-    S->fftLenReal = (uint16_t)128;
-    S->pTwiddleAReal = fft_table_q15_a_128;
-    S->pTwiddleBReal = fft_table_q15_b_128;
-    S->pCfft = &arm_cfft_sR_q15_len128;
-
-    return (ARM_MATH_SUCCESS);
-}
-
-arm_status
-rfft_init(arm_rfft_instance_q15 * rfft)
-{
-#if FFT_LENGTH==64
-    const arm_status init_status = rfft_init_q15_64(rfft, 0, 1);
-#elif FFT_LENGTH==128
-    const arm_status init_status = rfft_init_q15_128(rfft, 0, 1);
-#else
-#error "Unsupported FFT length"
-#endif
-    return init_status;
-}
-
-void
-spectrum_summarize_mean(q15_t *fft, int length,
-                    q15_t *out, int out_length)
-{
-    const int bin_width = length / out_length;
-    for (int i=0; i<out_length; i++) {
-        const int start = i*bin_width;
-        q15_t mean = 0;
-        arm_mean_q15(fft+start, bin_width, &mean);
-        out[i] = mean;
-    }
-}
 
 
 void
@@ -278,14 +200,14 @@ int main(void)
 
       // Remove DC offset
 #if 1
-      dc_filter(audio_chunk.data, AUDIO_BUFFER_SIZE);
+      audio_dc_filter(audio_chunk.data, AUDIO_BUFFER_SIZE);
 #endif
       // Process the audio
 
     // STFT
 #if 1
         arm_rfft_q15(&rfft, audio_chunk.data, fft_out);
-        spectrum_summarize_mean(fft_out, FFT_LENGTH, spectrum, SPECTRUM_LENGTH);
+        fft_summarize_mean(fft_out, FFT_LENGTH, spectrum, SPECTRUM_LENGTH);
 #endif
     
 #if 0
