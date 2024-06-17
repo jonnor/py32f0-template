@@ -18,7 +18,7 @@ int
 mel_filters( q15_t *samples, q15_t *tmp, q31_t *mels)
 {
 
-#if 0
+#if 1
     return 0;
 #else
 

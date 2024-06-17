@@ -85,12 +85,13 @@ class DataReceiver():
             audio_device,
             read_timeout=0.1,
             baudrate=921600,
+            chunksize=64,
         ):
         self.queue_capacity = 1000
         self.buffer_blocks = 100
         self.samplerate = 8000
         self.blocksize = 2048
-        self.chunksize = 64
+        self.chunksize = chunksize
         self.serial = serial
         self.read_timeout = read_timeout
         self.read_size = 100
@@ -263,6 +264,9 @@ def parse():
         '--blocksize', type=int, default=1024,
         help='block size (default: %(default)s)')
     parser.add_argument(
+        '--chunksize', type=int, default=128,
+        help='chunk size (default: %(default)s)')
+    parser.add_argument(
         '--buffersize', type=int, default=10,
         help='number of blocks used for buffering (default: %(default)s)')
 
@@ -288,6 +292,7 @@ def main():
                 baudrate=args.baudrate,
                 read_timeout=args.timeout,
                 audio_device=args.device,
+                chunksize=args.chunksize,
             )
             receiver.run_forever()
         except serial.serialutil.SerialException as e:

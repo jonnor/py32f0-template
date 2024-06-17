@@ -42,6 +42,9 @@
 
 #define SEND_BUFFER_SIZE (AUDIO_BUFFER_SIZE*4)
 
+#define SPECTROGRAM_FRAMES 32
+#define SPECTROGRAM_SIZE (SPECTRUM_LENGTH*SPECTROGRAM_FRAMES)
+
 struct audio_msg {
     int16_t data[AUDIO_BUFFER_SIZE];
 };
@@ -52,8 +55,10 @@ QUEUE_DEFINITION(audio_msg_queue, struct audio_msg);
 struct audio_msg_queue audio_queue;
 __IO uint16_t dma_buffer[AUDIO_BUFFER_SIZE];
 
-uint64_t audio_queue_overflows = 0;
-uint64_t audio_queue_transfers = 0;
+volatile uint64_t audio_queue_overflows = 0;
+volatile uint64_t audio_queue_transfers = 0;
+
+uint8_t spectrogram[SPECTROGRAM_SIZE];
 
 Fvad vad_instance;
 
@@ -63,7 +68,7 @@ static void APP_DMAConfig(void);
 static void APP_GPIO_Config(void);
 static void APP_SystemClockConfig(void);
 
-const int BLINK_RATE = 1000;
+const int BLINK_RATE = 500;
 
 
 uint64_t GetTick(void) {
@@ -90,11 +95,11 @@ void
 log_send_audio(const int16_t *samples, int length, uint32_t sequence_no)
 {
     // OPT: iterate over chunks of the samples, encode them gradually, reduce size of buffer
-    static unsigned char buffer[SEND_BUFFER_SIZE];
+    static unsigned char send_buffer[SEND_BUFFER_SIZE];
     size_t written = 0;
 
     const int status = \
-        base64_encode(buffer, SEND_BUFFER_SIZE, &written, (const uint8_t *)samples, 2*length);
+        base64_encode(send_buffer, SEND_BUFFER_SIZE, &written, (const uint8_t *)samples, 2*length);
     
     if (status != BASE64_OK) {
         printf("log-send-audio-error status=%d\r\n", status);
@@ -105,7 +110,7 @@ log_send_audio(const int16_t *samples, int length, uint32_t sequence_no)
 
     printf("data=");
     for (int i=0; i<written; i++) {
-        BSP_UART_TxChar((char )buffer[i]);
+        BSP_UART_TxChar((char )send_buffer[i]);
     }
 
     printf(" a=b \r\n");
@@ -204,7 +209,7 @@ int main(void)
   APP_SystemClockConfig();
 
   BSP_USART_Config(921600);
-  LL_mDelay(100);
+  //LL_mDelay(100);
 
   printf("app-start clock=%ld \r\n", SystemCoreClock);
 
@@ -218,6 +223,8 @@ int main(void)
 
   audio_msg_queue_init(&audio_queue);
 
+
+  memset(spectrogram, 0, SPECTROGRAM_SIZE);
 #if 0
     // Setup VAD
     fvad_reset(&vad_instance);
@@ -259,7 +266,7 @@ int main(void)
     // Blink the status LED
     if (tick >= (previous_blink + BLINK_RATE)) {
 
-      LL_GPIO_TogglePin(GPIOB, LL_GPIO_PIN_5);
+      //LL_GPIO_TogglePin(GPIOB, LL_GPIO_PIN_5);
       printf("blink tick=%ld overflows=%ld \r\n",
                 (long)tick, (long)audio_queue_overflows);
       previous_blink = tick;
@@ -289,7 +296,7 @@ int main(void)
 #endif
 
       // Send audio over serial
-#if 1
+#if 0
       log_send_audio(audio_chunk.data, AUDIO_BUFFER_SIZE, audio_counter);
 #endif
       audio_counter += 1;
