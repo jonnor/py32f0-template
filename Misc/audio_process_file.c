@@ -3,12 +3,31 @@
 Audio processing code that runs on host
 
 Primarily to be able to test and validate the audio pipeline on data.
+
+
+To build/run
+
+gcc -o process Misc/audio_process_file.c -I./Libraries/miniaudio/ -I./User -I./Libraries/CMSIS-DSP/Include/ -I./Libraries/CMSIS-DSP/Source/ -I./Libraries/CMSIS/Core/Include/ -I./Libraries/CMSIS-DSP/PrivateInclude -lm && ./process youtube-speech.wav
+
 */
 
 #define MINIAUDIO_IMPLEMENTATION
 #include "miniaudio.h"
 
-//#include "fft.h"
+#define FFT_LENGTH 128
+#define SPECTRUM_LENGTH 32
+#include "fft.h"
+#include "audio.h"
+
+// CMSIS-DSP
+#include "TransformFunctions/TransformFunctions.c"
+#include "StatisticsFunctions/StatisticsFunctions.c"
+#include "CommonTables/CommonTables.c"
+#include "BasicMathFunctions/BasicMathFunctions.c"
+#include "SupportFunctions/SupportFunctions.c"
+#include "FastMathFunctions/FastMathFunctions.c"
+#include "ComplexMathFunctions/ComplexMathFunctions.c"
+#include "MatrixFunctions/MatrixFunctions.c"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -24,13 +43,11 @@ main(int argc, const char *argv[])
     const char *path = argv[1];
 
 
-#if 0
     // Audio preprocessing setup
     arm_rfft_instance_q15 rfft = {0, };
     static q15_t fft_out[FFT_LENGTH*2] = {0, }; 
     static q15_t spectrum[SPECTRUM_LENGTH] = {0, }; 
     rfft_init(&rfft);
-#endif
 
     const int samplerate = 8000;
     ma_decoder_config config = ma_decoder_config_init(ma_format_s16, 1, samplerate);
@@ -43,7 +60,7 @@ main(int argc, const char *argv[])
         return -1;   // An error occurred.
     }
 
-    const int chunk_size = 128;
+    const int chunk_size = FFT_LENGTH;
     int16_t *frames[chunk_size];
     ma_uint64 frames_read = chunk_size;
     
@@ -58,6 +75,14 @@ main(int argc, const char *argv[])
         sample_no += frames_read;
         const float t = sample_no / (float)samplerate;
         printf("frame-read sample=%d t=%.3fs \n", (int)sample_no, t);
+
+        // Process the audio
+        audio_dc_filter(frames, chunk_size);
+
+        arm_rfft_q15(&rfft, frames, fft_out);
+        fft_summarize_mean(fft_out, FFT_LENGTH, spectrum, SPECTRUM_LENGTH);
+
+        // FIXME: write to a .npy file, or similar        
     }
 
 
