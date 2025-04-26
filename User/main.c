@@ -65,7 +65,7 @@ static void APP_DMAConfig(void);
 static void APP_GPIO_Config(void);
 static void APP_SystemClockConfig(void);
 
-const int BLINK_RATE = 500;
+const int BLINK_RATE = 1000;
 
 
 uint64_t GetTick(void) {
@@ -188,7 +188,19 @@ int main(void)
     // Blink the status LED
     if (tick >= (previous_blink + BLINK_RATE)) {
 
-      //LL_GPIO_TogglePin(GPIOB, LL_GPIO_PIN_5);
+#if 1
+      LL_GPIO_ResetOutputPin(GPIOB, LL_GPIO_PIN_5);
+      LL_GPIO_SetOutputPin(GPIOA, LL_GPIO_PIN_6);
+#endif
+
+      const bool pressed = !LL_GPIO_IsInputPinSet(GPIOA, LL_GPIO_PIN_5);
+      if (pressed) {
+          LL_GPIO_TogglePin(GPIOA, LL_GPIO_PIN_7);
+          LL_GPIO_TogglePin(GPIOA, LL_GPIO_PIN_12);
+      }
+      // acc power
+      //LL_GPIO_TogglePin(GPIOA, LL_GPIO_PIN_0);
+
       printf("blink tick=%ld overflows=%ld \r\n",
                 (long)tick, (long)audio_queue_overflows);
       previous_blink = tick;
@@ -199,13 +211,13 @@ int main(void)
     if (res == DEQUEUE_RESULT_SUCCESS) {
 
       // Remove DC offset
-#if 1
+#if 0
       audio_dc_filter(audio_chunk.data, AUDIO_BUFFER_SIZE);
 #endif
       // Process the audio
 
     // STFT
-#if 1
+#if 0
         arm_rfft_q15(&rfft, audio_chunk.data, fft_out);
         fft_summarize_mean(fft_out, FFT_LENGTH, spectrum, SPECTRUM_LENGTH);
 #endif
@@ -252,7 +264,22 @@ static void APP_GPIO_Config(void)
 {
   // PB5 as liveness indicator. Blink/toggle
   LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOB);
+  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOA);
+  // LEDs
+  // green
   LL_GPIO_SetPinMode(GPIOB, LL_GPIO_PIN_5, LL_GPIO_MODE_OUTPUT);
+  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_6, LL_GPIO_MODE_OUTPUT);
+
+  // red,blue
+  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_7, LL_GPIO_MODE_OUTPUT);
+  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_12, LL_GPIO_MODE_OUTPUT);
+
+  // Button
+  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_5, LL_GPIO_MODE_INPUT);
+  LL_GPIO_SetPinPull(GPIOA, LL_GPIO_PIN_5, LL_GPIO_PULL_UP);
+
+  // Accelerometer power
+  LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_0, LL_GPIO_MODE_OUTPUT);
 }
 
 
